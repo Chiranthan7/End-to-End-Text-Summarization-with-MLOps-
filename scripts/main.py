@@ -1,59 +1,76 @@
+import os
+os.environ["STREAMLIT_WATCH_USE_POLLING"] = "true"  # Fix for PyTorch module path error
+
 import streamlit as st
 import pandas as pd
-import os
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import pipeline
+from dotenv import load_dotenv
 
-# Load model and tokenizer
+# Load environment variables (optional)
+load_dotenv()
+
+st.set_page_config(page_title="Text Summarization", layout="wide")
+
+# Load summarizer with device=-1 to force CPU (comment out device param if you want GPU)
 @st.cache_resource
-def load_summarization_pipeline():
-    model_name = "t5-small"  # You can replace this with your fine-tuned model
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    return pipeline("summarization", model=model, tokenizer=tokenizer)
+def load_summarizer():
+    return pipeline("summarization", model="t5-small", tokenizer="t5-small", device=-1)
 
-summarizer = load_summarization_pipeline()
+summarizer = load_summarizer()
 
-# Streamlit App
-st.title("📝 Text Summarization App")
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Select Page", ["Single Summarization", "Batch Summarization"])
+def summarize_texts(texts, max_samples=100):
+    summaries = []
+    max_input_words = 512  # HuggingFace T5-small max input approx
 
-if page == "Single Summarization":
-    st.header("Enter Text to Summarize")
-    input_text = st.text_area("Input Text", height=300)
+    for i, text in enumerate(texts[:max_samples]):
+        try:
+            if not isinstance(text, str) or len(text.strip()) == 0:
+                summaries.append("Empty or invalid text")
+                continue
 
-    max_length = st.slider("Max Summary Length", 10, 200, 60)
-    min_length = st.slider("Min Summary Length", 5, 50, 10)
+            # Truncate input text by words to max_input_words
+            words = text.split()
+            if len(words) > max_input_words:
+                text = " ".join(words[:max_input_words])
 
-    if st.button("Summarize"):
-        if input_text.strip():
-            summary = summarizer(input_text, max_length=max_length, min_length=min_length, do_sample=False)[0]['summary_text']
-            st.subheader("Summary:")
-            st.success(summary)
-        else:
-            st.warning("Please enter some text to summarize.")
+            # Fixed min and max lengths for summary output
+            summary = summarizer(
+                text,
+                max_length=150,
+                min_length=30,
+                do_sample=False
+            )[0]["summary_text"]
+            summaries.append(summary)
+        except Exception as e:
+            st.error(f"Error summarizing row {i}: {e}")
+            summaries.append(f"ERROR: {e}")
 
-elif page == "Batch Summarization":
-    st.header("Batch Summarization")
-    uploaded_file = st.file_uploader("Upload CSV with a 'text' column", type=["csv"])
+    return summaries
 
-    if uploaded_file is not None:
+st.title("📄 Text Summarization App using Hugging Face + Streamlit")
+
+uploaded_file = st.file_uploader("Upload a CSV file with a 'text' column", type=["csv"])
+
+if uploaded_file:
+    try:
         df = pd.read_csv(uploaded_file)
-        if 'text' not in df.columns:
-            st.error("CSV must contain a 'text' column.")
+
+        if "text" not in df.columns:
+            st.error("❌ Uploaded CSV must contain a column named 'text'")
         else:
-            summaries = []
-            for i, txt in enumerate(df['text']):
-                try:
-                    summary = summarizer(txt, max_length=60, min_length=10, do_sample=False)[0]['summary_text']
-                except Exception as e:
-                    summary = f"Error: {str(e)}"
-                summaries.append(summary)
+            st.success(f"✅ Loaded {len(df)} records. Starting summarization...")
 
-            df['summary'] = summaries
-            st.write(df)
+            with st.spinner("Generating summaries..."):
+                df = df.dropna(subset=["text"]).reset_index(drop=True)
+                df["summary"] = summarize_texts(df["text"].tolist(), max_samples=100)
 
-            output_path = os.path.join("output", "summarized_batch.csv")
-            os.makedirs("output", exist_ok=True)
-            df.to_csv(output_path, index=False)
-            st.success(f"Summarization completed. File saved to {output_path}")
+            st.success("✅ Summarization completed!")
+            st.dataframe(df[["text", "summary"]].head(10))
+
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Download Result CSV", csv, "summarized_output.csv", "text/csv")
+
+    except Exception as e:
+        st.error(f"⚠️ Error: {e}")
+else:
+    st.info("👆 Upload a CSV file to begin.")

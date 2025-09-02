@@ -1,4 +1,5 @@
 import os
+import pickle
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
@@ -7,61 +8,54 @@ from helper_functions import log_info, log_error
 # Load environment variables
 load_dotenv()
 
-# Define base paths dynamically with default values
+# Define base paths dynamically
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ARTIFACTS_DIR = os.path.join(BASE_DIR, os.getenv('ARTIFACTS_DIR', 'artifacts'))
-DATA_DIR = os.path.join(BASE_DIR, os.getenv('DATA_DIR', 'data'))
+ARTIFACTS_DIR = os.path.join(BASE_DIR, os.getenv('ARTIFACTS_DIR'))
 
-# Output file paths
-TRAIN_PROCESSED_PATH = os.path.join(ARTIFACTS_DIR, "train_processed.csv")
-VAL_PROCESSED_PATH = os.path.join(ARTIFACTS_DIR, "val_processed.csv")
-
-# Ensure directories exist
+# Ensure Artifacts directory exists
 os.makedirs(ARTIFACTS_DIR, exist_ok=True)
-os.makedirs(DATA_DIR, exist_ok=True)
 
-def load_and_process_data(csv_path, test_size=0.2, random_state=42):
+# Define output path for processed data (optional)
+PROCESSED_DATA_PATH = os.path.join(ARTIFACTS_DIR, "processed_imdb_reviews.csv")
+
+def load_and_clean_data(file_path):
     """
-    Load and process the Social Network Ads dataset.
-    
-    Args:
-        csv_path (str): Path to the input CSV file
-        test_size (float): Proportion of the dataset to include in the validation split
-        random_state (int): Random state for reproducibility
-        
-    Returns:
-        tuple: ((X_train, y_train), (X_val, y_val))
+    Load IMDB dataset and perform basic cleaning.
     """
     try:
-        log_info(f"Loading dataset from: {csv_path}")
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(file_path)
+        if 'review' not in df.columns:
+            log_error("'review' column not found in dataset.")
+            return None
 
-        # Select features and target
-        X = df[['Age', 'EstimatedSalary']]  # Using Age and Salary as features
-        y = df['Purchased']  # Target variable
-
-        # Split into training and validation sets
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y, 
-            test_size=test_size, 
-            random_state=random_state,
-            stratify=y  # Ensure balanced split
-        )
-
-        # Save processed data
-        train_df = pd.concat([X_train, y_train], axis=1)
-        val_df = pd.concat([X_val, y_val], axis=1)
-        
-        train_df.to_csv(TRAIN_PROCESSED_PATH, index=False)
-        val_df.to_csv(VAL_PROCESSED_PATH, index=False)
-
-        log_info("Processed data saved successfully.")
-        return (X_train, y_train), (X_val, y_val)
+        df.dropna(subset=['review'], inplace=True)
+        df['review'] = df['review'].astype(str).str.strip()
+        df = df[df['review'].str.len() > 20]  # Filter out very short reviews
+        log_info("IMDB dataset loaded and cleaned.")
+        return df
 
     except Exception as e:
-        log_error(f"Failed to load/process data: {str(e)}")
-        raise
+        log_error(f"Error loading data: {e}")
+        return None
 
-if __name__ == "__main__":
-    sample_data_path = os.path.join(DATA_DIR, "Social_Network_Ads.csv")
-    load_and_process_data(sample_data_path)
+def split_data(df, test_size=0.2, random_state=42):
+    """
+    Splits the data into train and test sets.
+    """
+    try:
+        train_df, test_df = train_test_split(df, test_size=test_size, random_state=random_state)
+        log_info("Data successfully split into train and test sets.")
+        return train_df, test_df
+    except Exception as e:
+        log_error(f"Error splitting data: {e}")
+        return None, None
+
+def save_processed_data(df, output_path=PROCESSED_DATA_PATH):
+    """
+    Save cleaned dataframe for later use.
+    """
+    try:
+        df.to_csv(output_path, index=False)
+        log_info(f"Processed data saved to {output_path}")
+    except Exception as e:
+        log_error(f"Error saving processed data: {e}")
