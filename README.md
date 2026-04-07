@@ -1,8 +1,8 @@
-# MLOps Data Processing Application 🤖
+# MLOps Data Processing Application 
 
 A streamlined data processing application built with Python and Streamlit for MLOps workflows. This application provides an intuitive interface for data preprocessing, splitting, and validation tasks.
 
-## 🌟 Features
+## Features
 
 - Interactive web interface built with Streamlit
 - CSV file upload and processing
@@ -12,7 +12,7 @@ A streamlined data processing application built with Python and Streamlit for ML
 - Comprehensive logging system
 - Docker support for containerized deployment
 
-## 🛠️ Project Structure
+## Project Structure
 
 ```
 mlops/
@@ -28,7 +28,7 @@ mlops/
 └── README.md            # Project documentation
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -64,7 +64,7 @@ docker run -p 8501:8501 -v ${PWD}/data:/app/data -v ${PWD}/artifacts:/app/artifa
 
 The application will be available at `http://localhost:8501`
 
-## 📊 Usage
+## Usage
 
 1. Open the application in your web browser
 2. Use the sidebar to configure processing parameters:
@@ -83,7 +83,7 @@ The application expects CSV files with the following columns:
 - `text`: The input text data
 - `summary`: The corresponding summary or target variable
 
-## 📂 Output
+## Output
 
 Processed data is saved in the `artifacts` directory:
 - `train_processed.csv`: Training dataset
@@ -92,32 +92,28 @@ Processed data is saved in the `artifacts` directory:
 Logs are stored in:
 - `logs/mlops.log`: Application logs
 
-## 🔧 Configuration
+## Configuration
 
 Environment variables can be set in a `.env` file:
 ```env
 ARTIFACTS_DIR=artifacts
 ```
 
-## 🐳 Docker Support
+## Docker Support
 
 The included Dockerfile provides a containerized environment for the application. Build and run commands are provided above in the "Running the Application" section.
 
-## 📝 Logging
+## Logging
 
 The application includes comprehensive logging:
 - Info level: General processing information
 - Error level: Processing and validation errors
 - Logs are saved to `logs/mlops.log`
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Commit your changes
 4. Push to the branch
 5. Create a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
